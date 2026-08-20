@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useState } from "react";
+import { UploadCloud, FileType, Image as ImageIcon, X } from "lucide-react";
 
 interface UploadedFile {
   id: string;
@@ -21,288 +22,196 @@ export default function FileUploader({
   onRemoveFile,
   isProcessing,
 }: FileUploaderProps) {
-  const [isDragActive, setIsDragActive] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
-  const ACCEPTED_TYPES = [
-    "application/pdf",
-    "image/png",
-    "image/jpeg",
-    "image/jpg",
-    "image/webp",
-    "image/bmp",
-    "image/tiff",
-  ];
-
-  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-
-  const processFiles = useCallback(
-    (fileList: FileList | File[]) => {
-      const newFiles: UploadedFile[] = [];
-
-      Array.from(fileList).forEach((file) => {
-        if (!ACCEPTED_TYPES.includes(file.type)) {
-          alert(`"${file.name}" is not a supported file type. Please upload PDF or image files.`);
-          return;
-        }
-        if (file.size > MAX_FILE_SIZE) {
-          alert(`"${file.name}" exceeds the 10MB file size limit.`);
-          return;
-        }
-
-        const uploadedFile: UploadedFile = {
-          id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-          file,
-        };
-
-        if (file.type.startsWith("image/")) {
-          uploadedFile.preview = URL.createObjectURL(file);
-        }
-
-        newFiles.push(uploadedFile);
-      });
-
-      if (newFiles.length > 0) {
-        onFilesSelected(newFiles);
-      }
-    },
-    [onFilesSelected]
-  );
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
+  const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragActive(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragActive(false);
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setIsDragging(true);
+    } else if (e.type === "dragleave") {
+      setIsDragging(false);
+    }
   }, []);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      setIsDragActive(false);
-      if (e.dataTransfer.files.length > 0) {
-        processFiles(e.dataTransfer.files);
+      setIsDragging(false);
+
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        processFiles(Array.from(e.dataTransfer.files));
       }
     },
-    [processFiles]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
   );
 
   const handleFileInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files.length > 0) {
-        processFiles(e.target.files);
+        processFiles(Array.from(e.target.files));
       }
-      // Reset input value so the same file can be re-selected
-      e.target.value = "";
     },
-    [processFiles]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
   );
 
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return bytes + " B";
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
-  };
+  const processFiles = (files: File[]) => {
+    const validFiles = files.filter(
+      (file) =>
+        file.type === "application/pdf" || file.type.startsWith("image/")
+    );
 
-  const getFileIcon = (type: string): string => {
-    if (type === "application/pdf") return "📄";
-    if (type.startsWith("image/")) return "🖼️";
-    return "📁";
+    const newUploadedFiles = validFiles.map((file) => ({
+      id: Math.random().toString(36).substring(7),
+      file,
+      preview: file.type.startsWith("image/")
+        ? URL.createObjectURL(file)
+        : undefined,
+    }));
+
+    onFilesSelected(newUploadedFiles);
   };
 
   return (
-    <div>
-      {/* Drop Zone */}
-      <div
-        className={`upload-zone ${isDragActive ? "drag-active" : ""}`}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        onClick={() => !isProcessing && fileInputRef.current?.click()}
-        role="button"
-        tabIndex={0}
-        aria-label="Upload files by dropping them here or clicking to browse"
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            fileInputRef.current?.click();
-          }
-        }}
-        style={{ opacity: isProcessing ? 0.6 : 1, pointerEvents: isProcessing ? "none" : "auto" }}
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          accept=".pdf,.png,.jpg,.jpeg,.webp,.bmp,.tiff"
-          onChange={handleFileInput}
-          style={{ display: "none" }}
-          id="file-upload-input"
-        />
-
-        <div style={{ position: "relative", zIndex: 1 }}>
-          <div
-            style={{
-              fontSize: "3rem",
-              marginBottom: "var(--space-md)",
-              animation: isDragActive ? "floatUp 1s ease-in-out infinite" : "none",
-            }}
-          >
-            {isDragActive ? "📥" : "☁️"}
-          </div>
-
-          <h3
-            style={{
-              fontSize: "1.25rem",
-              fontWeight: 600,
-              marginBottom: "var(--space-sm)",
-              color: isDragActive ? "var(--accent-primary-light)" : "var(--text-primary)",
-            }}
-          >
-            {isDragActive ? "Drop your files here" : "Drag & drop files here"}
-          </h3>
-
-          <p
-            style={{
-              color: "var(--text-secondary)",
-              fontSize: "0.875rem",
-              marginBottom: "var(--space-lg)",
-            }}
-          >
-            or click to browse from your device
-          </p>
-
-          <div
-            style={{
-              display: "flex",
-              gap: "var(--space-sm)",
-              justifyContent: "center",
-              flexWrap: "wrap",
-            }}
-          >
-            <span className="tag">PDF</span>
-            <span className="tag">PNG</span>
-            <span className="tag">JPG</span>
-            <span className="tag">WebP</span>
-            <span className="tag">BMP</span>
-          </div>
-
-          <p
-            style={{
-              color: "var(--text-tertiary)",
-              fontSize: "0.75rem",
-              marginTop: "var(--space-md)",
-            }}
-          >
-            Max 10MB per file
-          </p>
-        </div>
-      </div>
-
-      {/* File List */}
-      {uploadedFiles.length > 0 && (
+    <div className="dashboard-card" style={{ marginBottom: "var(--space-xl)" }}>
+      {uploadedFiles.length === 0 ? (
         <div
-          style={{
-            marginTop: "var(--space-lg)",
-            display: "flex",
-            flexDirection: "column",
-            gap: "var(--space-sm)",
-          }}
+          className={`dropzone ${isDragging ? "active" : ""}`}
+          onDragEnter={handleDrag}
+          onDragLeave={handleDrag}
+          onDragOver={handleDrag}
+          onDrop={handleDrop}
         >
           <div
             style={{
+              width: 64,
+              height: 64,
+              borderRadius: "50%",
+              background: "var(--bg-card)",
               display: "flex",
               alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: "var(--space-xs)",
+              justifyContent: "center",
+              margin: "0 auto var(--space-md)",
+              boxShadow: "var(--shadow-sm)",
+              color: "var(--accent-primary)",
             }}
           >
-            <h4
-              style={{
-                fontSize: "0.875rem",
-                fontWeight: 600,
-                color: "var(--text-secondary)",
-              }}
-            >
-              {uploadedFiles.length} file{uploadedFiles.length > 1 ? "s" : ""} selected
-            </h4>
+            <UploadCloud size={32} />
           </div>
-
-          {uploadedFiles.map((uf) => (
-            <div key={uf.id} className="file-card">
-              {uf.preview ? (
-                <img
-                  src={uf.preview}
-                  alt={uf.file.name}
-                  style={{
-                    width: 44,
-                    height: 44,
-                    objectFit: "cover",
-                    borderRadius: "var(--radius-sm)",
-                    border: "1px solid var(--border-primary)",
-                  }}
-                />
-              ) : (
+          <h3 className="h3" style={{ marginBottom: "var(--space-xs)" }}>
+            Upload Content for Analysis
+          </h3>
+          <p className="text-muted" style={{ marginBottom: "var(--space-lg)" }}>
+            Drag and drop a PDF or Image, or click to browse
+          </p>
+          <input
+            type="file"
+            id="file-upload"
+            className="sr-only"
+            style={{ display: "none" }}
+            multiple
+            accept="application/pdf,image/png,image/jpeg,image/webp"
+            onChange={handleFileInput}
+            disabled={isProcessing}
+          />
+          <label
+            htmlFor="file-upload"
+            className="btn btn-primary"
+            style={{ cursor: isProcessing ? "not-allowed" : "pointer", opacity: isProcessing ? 0.5 : 1 }}
+          >
+            Browse Files
+          </label>
+        </div>
+      ) : (
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-md)" }}>
+            <h3 className="h3">Selected Files ({uploadedFiles.length})</h3>
+            <input
+              type="file"
+              id="file-upload-add"
+              className="sr-only"
+              style={{ display: "none" }}
+              multiple
+              accept="application/pdf,image/png,image/jpeg,image/webp"
+              onChange={handleFileInput}
+              disabled={isProcessing}
+            />
+            <label
+              htmlFor="file-upload-add"
+              className="btn btn-secondary btn-sm"
+              style={{ cursor: isProcessing ? "not-allowed" : "pointer" }}
+            >
+              + Add More
+            </label>
+          </div>
+          
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "var(--space-md)" }}>
+            {uploadedFiles.map((uf) => (
+              <div
+                key={uf.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "var(--space-md)",
+                  padding: "var(--space-md)",
+                  border: "1px solid var(--border-light)",
+                  borderRadius: "var(--radius-md)",
+                  background: "var(--bg-hover)",
+                }}
+              >
                 <div
                   style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: "var(--radius-sm)",
-                    background: "var(--bg-glass-strong)",
+                    width: 48,
+                    height: 48,
+                    borderRadius: "var(--radius-md)",
+                    overflow: "hidden",
+                    background: "var(--bg-card)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: "1.25rem",
                     flexShrink: 0,
+                    border: "1px solid var(--border-light)",
                   }}
                 >
-                  {getFileIcon(uf.file.type)}
+                  {uf.preview ? (
+                    <img
+                      src={uf.preview}
+                      alt={uf.file.name}
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                  ) : (
+                    <FileType size={24} color="var(--text-tertiary)" />
+                  )}
                 </div>
-              )}
 
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p
-                  className="truncate"
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: "0.875rem", fontWeight: 500, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {uf.file.name}
+                  </p>
+                  <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                    {(uf.file.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => onRemoveFile(uf.id)}
+                  disabled={isProcessing}
                   style={{
-                    fontSize: "0.875rem",
-                    fontWeight: 500,
-                    color: "var(--text-primary)",
-                  }}
-                >
-                  {uf.file.name}
-                </p>
-                <p
-                  style={{
-                    fontSize: "0.75rem",
+                    background: "none",
+                    border: "none",
+                    cursor: isProcessing ? "not-allowed" : "pointer",
                     color: "var(--text-tertiary)",
-                    marginTop: "2px",
+                    padding: "4px",
                   }}
                 >
-                  {formatFileSize(uf.file.size)} •{" "}
-                  {uf.file.type === "application/pdf" ? "PDF Document" : "Image"}
-                </p>
+                  <X size={16} />
+                </button>
               </div>
-
-              <button
-                className="btn btn-ghost btn-icon"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRemoveFile(uf.id);
-                }}
-                disabled={isProcessing}
-                aria-label={`Remove ${uf.file.name}`}
-                style={{ fontSize: "1.25rem", color: "var(--text-tertiary)" }}
-              >
-                ×
-              </button>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </div>

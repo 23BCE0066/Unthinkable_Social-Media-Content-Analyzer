@@ -2,11 +2,10 @@
 
 import React, { useState, useCallback } from "react";
 import { useAuth } from "@clerk/nextjs";
-import Navbar from "@/components/Navbar";
 import FileUploader from "@/components/FileUploader";
-import ExtractedText from "@/components/ExtractedText";
 import AnalysisResult from "@/components/AnalysisResult";
 import LoadingState from "@/components/LoadingState";
+import { Bot, RefreshCw } from "lucide-react";
 
 interface UploadedFile {
   id: string;
@@ -17,13 +16,11 @@ interface UploadedFile {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnalysisData = any;
 
-type AppState = "idle" | "extracting" | "extracted" | "analyzing" | "analyzed" | "error";
+type AppState = "idle" | "extracting" | "analyzing" | "analyzed" | "error";
 
 export default function Home() {
   const { isSignedIn } = useAuth();
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-  const [extractedText, setExtractedText] = useState<string>("");
-  const [extractedFileName, setExtractedFileName] = useState<string>("");
   const [analysis, setAnalysis] = useState<AnalysisData | null>(null);
   const [appState, setAppState] = useState<AppState>("idle");
   const [errorMessage, setErrorMessage] = useState<string>("");
@@ -33,7 +30,6 @@ export default function Home() {
     setUploadedFiles((prev) => [...prev, ...newFiles]);
     setAppState("idle");
     setAnalysis(null);
-    setExtractedText("");
     setErrorMessage("");
   }, []);
 
@@ -64,7 +60,6 @@ export default function Home() {
   };
 
   const extractTextFromImage = async (file: File): Promise<string> => {
-    // Use Tesseract.js for OCR (loaded client-side)
     const { createWorker } = await import("tesseract.js");
     const worker = await createWorker("eng");
     const {
@@ -110,15 +105,6 @@ export default function Home() {
         return;
       }
 
-      setExtractedText(allText);
-      setExtractedFileName(
-        uploadedFiles.length === 1
-          ? uploadedFiles[0].file.name
-          : `${uploadedFiles.length} files combined`
-      );
-      setProgress(50);
-      setAppState("extracted");
-
       // Auto-start analysis
       setAppState("analyzing");
       setProgress(60);
@@ -152,8 +138,6 @@ export default function Home() {
       if (f.preview) URL.revokeObjectURL(f.preview);
     });
     setUploadedFiles([]);
-    setExtractedText("");
-    setExtractedFileName("");
     setAnalysis(null);
     setAppState("idle");
     setProgress(0);
@@ -163,246 +147,75 @@ export default function Home() {
   const isProcessing = appState === "extracting" || appState === "analyzing";
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      <Navbar />
+    <div style={{ maxWidth: 1200, margin: "0 auto", animation: "fadeIn 0.3s ease-out" }}>
+      {/* Header Area */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-xl)" }}>
+        <div>
+          <h1 className="h1" style={{ marginBottom: "var(--space-xs)" }}>Analytics Overview</h1>
+          <p className="text-muted">AI-powered engagement and demographic forecast</p>
+        </div>
+        
+        {/* Run Analysis Button (Top Right) */}
+        {uploadedFiles.length > 0 && appState !== "analyzed" && !isProcessing && (
+          <button
+            className="btn btn-primary"
+            onClick={handleExtractAndAnalyze}
+            disabled={!isSignedIn}
+            title={!isSignedIn ? "Please sign in to analyze content" : ""}
+          >
+            <Bot size={18} />
+            Generate Forecast
+          </button>
+        )}
+        
+        {appState === "analyzed" && (
+          <button className="btn btn-secondary" onClick={handleReset}>
+            <RefreshCw size={18} />
+            New Analysis
+          </button>
+        )}
+      </div>
 
-      <main style={{ flex: 1 }}>
-        {/* Hero Section */}
-        <section className="hero">
-          <div className="container container-sm">
-            <div className="animate-fade-in-up">
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "var(--space-sm)",
-                  padding: "var(--space-xs) var(--space-md)",
-                  background: "var(--bg-glass)",
-                  borderRadius: "var(--radius-full)",
-                  border: "1px solid var(--border-primary)",
-                  fontSize: "0.8125rem",
-                  color: "var(--text-secondary)",
-                  marginBottom: "var(--space-lg)",
-                }}
-              >
-                <span className="pulse-dot" />
-                Powered by Gemini AI
-              </div>
+      {/* Upload Section (Always visible unless fully analyzed, then can be minimized or reset) */}
+      {appState !== "analyzed" && (
+        <FileUploader
+          onFilesSelected={handleFilesSelected}
+          uploadedFiles={uploadedFiles}
+          onRemoveFile={handleRemoveFile}
+          isProcessing={isProcessing}
+        />
+      )}
 
-              <h1 className="hero-title">
-                Analyze Your Content.{" "}
-                <span className="gradient-text">Maximize Engagement.</span>
-              </h1>
-
-              <p className="hero-subtitle">
-                Upload PDFs or images, extract text with advanced OCR, and get AI-powered
-                insights to supercharge your social media presence.
-              </p>
-            </div>
+      {/* Loading States */}
+      {isProcessing && (
+        <div className="dashboard-card" style={{ textAlign: "center", padding: "var(--space-2xl)" }}>
+          <LoadingState
+            message={appState === "extracting" ? "Extracting content..." : "Running AI Predictive Model..."}
+            subMessage={`${progress}% complete`}
+          />
+          <div className="progress-bar-container" style={{ maxWidth: 400, margin: "var(--space-lg) auto 0" }}>
+            <div className="progress-bar-fill" style={{ width: `${progress}%` }} />
           </div>
-        </section>
+        </div>
+      )}
 
-        {/* Main Content */}
-        <section style={{ paddingBottom: "var(--space-4xl)" }}>
-          <div className="container container-sm">
-            {/* Upload Section */}
-            <div className="animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
-              <FileUploader
-                onFilesSelected={handleFilesSelected}
-                uploadedFiles={uploadedFiles}
-                onRemoveFile={handleRemoveFile}
-                isProcessing={isProcessing}
-              />
-            </div>
-
-            {/* Action Buttons */}
-            {uploadedFiles.length > 0 && appState !== "analyzed" && (
-              <div
-                className="animate-fade-in-up"
-                style={{
-                  display: "flex",
-                  gap: "var(--space-md)",
-                  justifyContent: "center",
-                  marginTop: "var(--space-xl)",
-                  animationDelay: "0.15s",
-                }}
-              >
-                {!isProcessing && (
-                  <>
-                    <button
-                      className="btn btn-primary btn-lg"
-                      onClick={handleExtractAndAnalyze}
-                      disabled={!isSignedIn}
-                      title={!isSignedIn ? "Please sign in to analyze content" : ""}
-                      style={{
-                        opacity: !isSignedIn ? 0.5 : 1,
-                      }}
-                    >
-                      <span>🚀</span>
-                      {!isSignedIn ? "Sign in to Analyze" : "Extract & Analyze"}
-                    </button>
-                    <button className="btn btn-secondary btn-lg" onClick={handleReset}>
-                      Clear All
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* Progress Bar */}
-            {isProcessing && (
-              <div
-                className="animate-fade-in"
-                style={{ marginTop: "var(--space-xl)" }}
-              >
-                <div className="progress-bar">
-                  <div
-                    className="progress-fill"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Loading State */}
-            {appState === "extracting" && (
-              <LoadingState
-                message="Extracting text from your files..."
-                subMessage="PDF parsing and OCR in progress"
-              />
-            )}
-
-            {appState === "analyzing" && (
-              <LoadingState
-                message="AI is analyzing your content..."
-                subMessage="Generating engagement insights and suggestions"
-              />
-            )}
-
-            {/* Error State */}
-            {appState === "error" && (
-              <div
-                className="analysis-card animate-fade-in-up"
-                style={{
-                  marginTop: "var(--space-xl)",
-                  textAlign: "center",
-                  borderColor: "rgba(239, 68, 68, 0.3)",
-                }}
-              >
-                <div style={{ fontSize: "2.5rem", marginBottom: "var(--space-md)" }}>⚠️</div>
-                <h3
-                  style={{
-                    fontSize: "1.125rem",
-                    fontWeight: 600,
-                    color: "var(--accent-danger)",
-                    marginBottom: "var(--space-sm)",
-                  }}
-                >
-                  Something went wrong
-                </h3>
-                <p
-                  style={{
-                    color: "var(--text-secondary)",
-                    fontSize: "0.9375rem",
-                    marginBottom: "var(--space-lg)",
-                    maxWidth: 500,
-                    margin: "0 auto var(--space-lg)",
-                  }}
-                >
-                  {errorMessage}
-                </p>
-                <div style={{ display: "flex", gap: "var(--space-md)", justifyContent: "center" }}>
-                  <button className="btn btn-primary" onClick={handleExtractAndAnalyze}>
-                    Try Again
-                  </button>
-                  <button className="btn btn-secondary" onClick={handleReset}>
-                    Start Over
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Results Section */}
-            {appState === "analyzed" && (
-              <div style={{ marginTop: "var(--space-2xl)" }}>
-                {/* Reset button */}
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    marginBottom: "var(--space-lg)",
-                  }}
-                >
-                  <button className="btn btn-secondary btn-sm" onClick={handleReset}>
-                    ↻ New Analysis
-                  </button>
-                </div>
-
-                {/* Extracted Text */}
-                <div style={{ marginBottom: "var(--space-lg)" }}>
-                  <ExtractedText text={extractedText} fileName={extractedFileName} />
-                </div>
-
-                {/* Analysis Results */}
-                {analysis && <AnalysisResult analysis={analysis} />}
-              </div>
-            )}
-
-            {/* Empty State (when no files uploaded) */}
-            {uploadedFiles.length === 0 && appState === "idle" && (
-              <div className="empty-state animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
-                <div className="empty-state-icon">📊</div>
-                <div>
-                  <h3
-                    style={{
-                      fontSize: "1.125rem",
-                      fontWeight: 600,
-                      color: "var(--text-secondary)",
-                      marginBottom: "var(--space-xs)",
-                    }}
-                  >
-                    No files uploaded yet
-                  </h3>
-                  <p
-                    style={{
-                      fontSize: "0.875rem",
-                      color: "var(--text-tertiary)",
-                    }}
-                  >
-                    Upload a PDF or image to get started with AI-powered content analysis
-                  </p>
-                </div>
-              </div>
-            )}
+      {/* Error State */}
+      {appState === "error" && (
+        <div className="dashboard-card" style={{ textAlign: "center", padding: "var(--space-2xl)", borderColor: "var(--accent-danger)" }}>
+          <div style={{ fontSize: "3rem", marginBottom: "var(--space-md)" }}>⚠️</div>
+          <h3 className="h3" style={{ color: "var(--accent-danger)", marginBottom: "var(--space-sm)" }}>Analysis Failed</h3>
+          <p className="text-muted" style={{ marginBottom: "var(--space-lg)" }}>{errorMessage}</p>
+          <div style={{ display: "flex", gap: "var(--space-md)", justifyContent: "center" }}>
+            <button className="btn btn-primary" onClick={handleExtractAndAnalyze}>Try Again</button>
+            <button className="btn btn-secondary" onClick={handleReset}>Start Over</button>
           </div>
-        </section>
+        </div>
+      )}
 
-        {/* Footer */}
-        <footer
-          style={{
-            borderTop: "1px solid var(--border-primary)",
-            padding: "var(--space-xl) 0",
-            textAlign: "center",
-          }}
-        >
-          <div className="container">
-            <p
-              style={{
-                fontSize: "0.8125rem",
-                color: "var(--text-tertiary)",
-              }}
-            >
-              Built by <strong style={{ color: "var(--text-secondary)" }}>Mehul Goyal</strong> •{" "}
-              Powered by{" "}
-              <span className="gradient-text" style={{ fontWeight: 600 }}>
-                Gemini AI
-              </span>{" "}
-              • Secured by{" "}
-              <span style={{ color: "var(--accent-primary-light)", fontWeight: 600 }}>Clerk</span>
-            </p>
-          </div>
-        </footer>
-      </main>
+      {/* Results Dashboard */}
+      {appState === "analyzed" && analysis && (
+        <AnalysisResult analysis={analysis} />
+      )}
     </div>
   );
 }

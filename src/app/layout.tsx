@@ -1,26 +1,13 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
+import Sidebar from "@/components/Sidebar";
+import Topbar from "@/components/Topbar";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "ContentLens AI — Social Media Content Analyzer",
   description:
     "Upload PDFs and images, extract text with OCR, and get AI-powered engagement suggestions for your social media content.",
-  keywords: [
-    "social media analyzer",
-    "content analyzer",
-    "OCR",
-    "PDF parser",
-    "AI engagement",
-    "Gemini AI",
-  ],
-  authors: [{ name: "Mehul Goyal" }],
-  openGraph: {
-    title: "ContentLens AI — Social Media Content Analyzer",
-    description:
-      "AI-powered content analysis and engagement improvement suggestions",
-    type: "website",
-  },
 };
 
 export default function RootLayout({
@@ -40,7 +27,15 @@ export default function RootLayout({
       </head>
       <body>
         <ClerkProvider>
-          {children}
+          <div className="app-layout">
+            <Sidebar />
+            <div className="main-content">
+              <Topbar />
+              <main className="content-area">
+                {children}
+              </main>
+            </div>
+          </div>
         </ClerkProvider>
       </body>
     </html>
