@@ -93,6 +93,30 @@ Here is a glimpse into the ContentLens Pro dashboard.
   <em>Advanced data export suite for external reporting</em>
 </div>
 
+<br/>
+
+<div align="center">
+  <img src="./public/screenshots/10.png" alt="Billing & Subscription" width="800" style="border-radius: 8px; margin-bottom: 16px;" />
+  <br/>
+  <em>SaaS Subscription pricing tiers with dynamic Razorpay integration</em>
+</div>
+
+<br/>
+
+<div align="center">
+  <img src="./public/screenshots/11.png" alt="Razorpay Checkout" width="800" style="border-radius: 8px; margin-bottom: 16px;" />
+  <br/>
+  <em>Live Razorpay Checkout modal for seamless payment processing</em>
+</div>
+
+<br/>
+
+<div align="center">
+  <img src="./public/screenshots/12.png" alt="Help Center" width="800" style="border-radius: 8px; margin-bottom: 16px;" />
+  <br/>
+  <em>Professional Support and Help Center hub</em>
+</div>
+
 ---
 
 ## ✨ Enterprise Features
